@@ -168,6 +168,7 @@ const setActivityResults = async (classroomID, userID, activityID, grade) => {
     return response.status;
 }
 
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const solveActivities = (userName) => {
     const schoolID = "SH1612901004"
@@ -192,13 +193,14 @@ const solveActivities = (userName) => {
             const duration = 180;
             activityArray = Object.keys(result);
 
-            activityArray.map((activityID) => {
+            for (const activityID of activityArray) {
                 addTimeStamp(`${schoolID}_${classID}`, `${schoolID}_${studentID}`, activityID, duration);
                 Promise.all([
                     requestDataBase("rxb_0020", `upd_exe_was_saved|${classID}|${activityID}|${studentID}`),
                     requestDataBase("rxb_0020", `upd_stud_work_qma|${classID}|${activityID}|${studentID}|${grade}%`),
                     requestDataBase("rxb_0020", `upd_grade_data|${classID}|${activityID}|${studentID}|${grade}%|0|`)
                 ]).then(async () => {
+                    await delay(1000)
                     return setActivityResults(`${schoolID}_${classID}`, `${schoolID}_${studentID}`, activityID, grade)
                 .then((e) => {
                     console.log("done", e)
@@ -206,7 +208,7 @@ const solveActivities = (userName) => {
                 }).catch((e) => {
                     console.log(e)
                 })
-            })
+            }
         })
 }
 
