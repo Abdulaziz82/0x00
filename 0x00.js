@@ -168,7 +168,12 @@ const setActivityResults = async (classroomID, userID, activityID, grade) => {
     return response.status;
 }
 
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const getRandomInt = (min, max) => {
+    min = Math.ceil(min);
+    max = Math.floor(max);
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
 
 const solveActivities = (userName) => {
     const schoolID = "SH1612901004"
@@ -188,28 +193,30 @@ const solveActivities = (userName) => {
             reportID = result.reportId;
             return getAllActivity(`${schoolID}_${classID}`, reportID)
         })
-        .then((result) => {
-            const grade = 69;
+        .then(async (result) => {
             const duration = 180;
             activityArray = Object.keys(result);
 
             for (const activityID of activityArray) {
+                const grade = getRandomInt(88, 100);
+                await new Promise((resolve) => {
+                    setTimeout(resolve, 1000);
+                });
+
                 addTimeStamp(`${schoolID}_${classID}`, `${schoolID}_${studentID}`, activityID, duration);
-                Promise.all([
+                await Promise.all([
                     requestDataBase("rxb_0020", `upd_exe_was_saved|${classID}|${activityID}|${studentID}`),
                     requestDataBase("rxb_0020", `upd_stud_work_qma|${classID}|${activityID}|${studentID}|${grade}%`),
                     requestDataBase("rxb_0020", `upd_grade_data|${classID}|${activityID}|${studentID}|${grade}%|0|`)
-                ]).then(async () => {
-                    await delay(1000)
-                    return setActivityResults(`${schoolID}_${classID}`, `${schoolID}_${studentID}`, activityID, grade)
-                .then((e) => {
-                    console.log("done", e)
-                })
-                }).catch((e) => {
-                    console.log(e)
-                })
+                ]);
+
+                await setActivityResults(`${schoolID}_${classID}`, `${schoolID}_${studentID}`, activityID, grade);
+                console.log("done", activityID);
             }
         })
+        .catch((error) => {
+            console.log(error);
+        });
 }
 
 
