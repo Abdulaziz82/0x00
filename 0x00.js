@@ -3,7 +3,7 @@
 const dataBaseBaseURL = "";
 const fetchBaseURL = "";
 const usernameIDBaseURL = "";
-const baseURL = "";
+const baseURL2 = "";
 
 
 const data_get_tag = (_, e) => {
@@ -45,11 +45,10 @@ const zu_write_ByteArray = (_, e, t) => {
     }
 }
 
-
 const headers = {
     "accept": "*/*",
     "accept-language": "en-US,en;q=0.9",
-    "access-control-allow-origin": baseURL,
+    "access-control-allow-origin": baseURL2,
     "content-type": "application/json",
     "sec-ch-ua": "\"Chromium\";v=\"116\", \"Not)A;Brand\";v=\"24\", \"Google Chrome\";v=\"116\"",
     "sec-ch-ua-mobile": "?0",
@@ -168,6 +167,7 @@ const setActivityResults = async (classroomID, userID, activityID, grade) => {
     return response.status;
 }
 
+
 const getRandomInt = (min, max) => {
     min = Math.ceil(min);
     max = Math.floor(max);
@@ -198,20 +198,22 @@ const solveActivities = (userName) => {
             activityArray = Object.keys(result);
 
             for (const activityID of activityArray) {
+                const parts = activityID.split('_');
+                const activityIDString = parts.slice(1).join('_');
                 const grade = getRandomInt(88, 100);
                 await new Promise((resolve) => {
                     setTimeout(resolve, 1000);
                 });
 
-                addTimeStamp(`${schoolID}_${classID}`, `${schoolID}_${studentID}`, activityID, duration);
+                addTimeStamp(`${schoolID}_${classID}`, `${schoolID}_${studentID}`, activityIDString, duration);
                 await Promise.all([
-                    requestDataBase("rxb_0020", `upd_exe_was_saved|${classID}|${activityID}|${studentID}`),
-                    requestDataBase("rxb_0020", `upd_stud_work_qma|${classID}|${activityID}|${studentID}|${grade}%`),
-                    requestDataBase("rxb_0020", `upd_grade_data|${classID}|${activityID}|${studentID}|${grade}%|0|`)
+                    requestDataBase("rxb_0020", `upd_exe_was_saved|${classID}|${activityIDString}|${studentID}`),
+                    requestDataBase("rxb_0020", `upd_stud_work_qma|${classID}|${activityIDString}|${studentID}|${grade}%`),
+                    requestDataBase("rxb_0020", `upd_grade_data|${classID}|${activityIDString}|${studentID}|${grade}%|0|`)
                 ]);
 
                 await setActivityResults(`${schoolID}_${classID}`, `${schoolID}_${studentID}`, activityID, grade);
-                console.log("done", activityID);
+                console.log("done", activityIDString);
             }
         })
         .catch((error) => {
