@@ -225,10 +225,10 @@ const solveActivities = (userName, manOfTheHour) => {
                                             value: data_get_tag(result, "stud_freeform")
                                         }
                                     ];
-                                    const grade = data_get_tag(result, "grade").replace("%", "");
+                                    const grade = parseInt(data_get_tag(result, "grade").replace("%", ""));
                                     const activityType = updObj.find(x => x.value !== "0");
                                     addTimeStamp(`${schoolID}_${classID}`, `${schoolID}_${studentID}`, activity.id, duration);
-                                    if (activityType !== undefined) {
+                                    if (activityType !== undefined || grade !== -1) {
                                         await Promise.all([
                                             requestDataBase("rxb_0020", `upd_exe_was_saved|${classID}|${activityID}|${studentID}`),
                                             requestDataBase("rxb_0020", `upd_stud_work_${activityType.key}|${classID}|${activityID}|${studentID}|${activityType.value}`),
