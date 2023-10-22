@@ -1,11 +1,5 @@
 
 
-const dataBaseBaseURL = "";
-const fetchBaseURL = "";
-const usernameIDBaseURL = "";
-const baseURL2 = "";
-
-
 const data_get_tag = (_, e) => {
     var t = _.split("{");
     var T = "";
@@ -44,6 +38,12 @@ const zu_write_ByteArray = (_, e, t) => {
         _.setUint8(e + T, t[T]);
     }
 }
+
+
+const dataBaseBaseURL = "";
+const fetchBaseURL = "";
+const usernameIDBaseURL = "";
+const baseURL2 = "";
 
 const headers = {
     "accept": "*/*",
@@ -175,46 +175,86 @@ const getRandomInt = (min, max) => {
 }
 
 
-const solveActivities = (userName) => {
+const solveActivities = (userName, manOfTheHour) => {
     const schoolID = "SH1612901004"
     let studentID;
     let classID;
     let reportID;
-    let activityArray;
+    let manOfTheHourStudentID;
+    let manOfTheHourClassID;
 
-    requestDataBase("rxb_0010", `login_student|${userName}|monastir33`)
+    requestDataBase("rxb_0010", `login_student|${manOfTheHour}|monastir33`)
         .then((result) => {
-            studentID = data_get_tag(result, "ID");
-            classID = data_get_tag(result, "class_id");
-            reportLoginStudent(`${schoolID}_${classID}`, `${schoolID}_${studentID}`)
-            return getReportId(schoolID, studentID)
-        })
-        .then((result) => {
-            reportID = result.reportId;
-            return getAllActivity(`${schoolID}_${classID}`, reportID)
-        })
-        .then(async (result) => {
-            const duration = 180;
-            activityArray = Object.keys(result);
-
-            for (const activityID of activityArray) {
-                const parts = activityID.split('_');
-                const activityIDString = parts.slice(1).join('_');
-                const grade = getRandomInt(88, 100);
-                await new Promise((resolve) => {
-                    setTimeout(resolve, 1000);
+            manOfTheHourStudentID = data_get_tag(result, "ID");
+            manOfTheHourClassID = data_get_tag(result, "class_id");
+            requestDataBase("rxb_0010", `login_student|${userName}|monastir33`)
+                .then((result) => {
+                    studentID = data_get_tag(result, "ID");
+                    classID = data_get_tag(result, "class_id");
+                    reportLoginStudent(`${schoolID}_${classID}`, `${schoolID}_${studentID}`)
+                    return getReportId(schoolID, studentID)
+                })
+                .then((result) => {
+                    reportID = result.reportId;
+                    return getAllActivity(`${schoolID}_${classID}`, reportID)
+                })
+                .then(async (result) => {
+                    const duration = 180;
+                    const activityArray = Object.keys(result).map((key) => ({
+                        id: key,
+                        ...result[key],
+                    }));
+                    const unsolvedActivities = activityArray.filter(activity => activity.complete !== "✓")
+        
+                    for (const activity of unsolvedActivities) {
+                        const activityID = activity.id.split('_').slice(1).join('_');
+                        requestDataBase("rxb_0010", `get_sql_generic|SELECT done, grade, stud_qma, stud_qwa, stud_freeform FROM xrb_studwork WHERE class_ID = '${manOfTheHourClassID}' AND stud_ID = '${manOfTheHourStudentID}' AND exe_ID = '${activityID}'`)
+                            .then(async (result) => {
+                                if (data_get_tag(result, "done") != "0") {
+                                    const updObj = [
+                                        {
+                                            key: "qma",
+                                            value: data_get_tag(result, "stud_qma"),
+                                        },
+                                        {
+                                            key: "qwa",
+                                            value: data_get_tag(result, "stud_qwa"),
+                                        },
+                                        {
+                                            key: "freeform",
+                                            value: data_get_tag(result, "stud_freeform")
+                                        }
+                                    ];
+                                    const grade = data_get_tag(result, "grade").replace("%", "");
+                                    const activityType = updObj.find(x => x.value !== "0");
+                                    addTimeStamp(`${schoolID}_${classID}`, `${schoolID}_${studentID}`, activity.id, duration);
+                                    if (activityType !== undefined) {
+                                        await Promise.all([
+                                            requestDataBase("rxb_0020", `upd_exe_was_saved|${classID}|${activityID}|${studentID}`),
+                                            requestDataBase("rxb_0020", `upd_stud_work_${activityType.key}|${classID}|${activityID}|${studentID}|${activityType.value}`),
+                                            requestDataBase("rxb_0020", `upd_grade_data|${classID}|${activityID}|${studentID}|${grade}%|0|`),
+                                            setActivityResults(`${schoolID}_${classID}`, `${schoolID}_${studentID}`, activity.id, grade)
+                                        ])
+                                    } else {
+                                        await Promise.all([
+                                            requestDataBase("rxb_0020", `upd_exe_was_saved|${classID}|${activityID}|${studentID}`),
+                                            setActivityResults(`${schoolID}_${classID}`, `${schoolID}_${studentID}`, activity.id, grade)
+                                        ])
+                                    }
+                                    console.log(`%c done: ${activityID}`, 'background: #222; color: #008000');
+                                }
+                            })
+                            .catch((error) => {
+                                console.log(error);
+                            });
+                        await new Promise((resolve) => {
+                            setTimeout(resolve, 1000);
+                        });
+                    }
+                })
+                .catch((error) => {
+                    console.log(error);
                 });
-
-                addTimeStamp(`${schoolID}_${classID}`, `${schoolID}_${studentID}`, activityIDString, duration);
-                await Promise.all([
-                    requestDataBase("rxb_0020", `upd_exe_was_saved|${classID}|${activityIDString}|${studentID}`),
-                    requestDataBase("rxb_0020", `upd_stud_work_qma|${classID}|${activityIDString}|${studentID}|${grade}%`),
-                    requestDataBase("rxb_0020", `upd_grade_data|${classID}|${activityIDString}|${studentID}|${grade}%|0|`)
-                ]);
-
-                await setActivityResults(`${schoolID}_${classID}`, `${schoolID}_${studentID}`, activityID, grade);
-                console.log("done", activityIDString);
-            }
         })
         .catch((error) => {
             console.log(error);
@@ -222,4 +262,54 @@ const solveActivities = (userName) => {
 }
 
 
-solveActivities("USERNAME")
+
+
+solveActivities("USER_NAME", "MAN_OF_THE_HOUR_USER_NAME")
+
+
+
+// const solveActivities = (userName) => {
+//     const schoolID = "SH1612901004"
+//     let studentID;
+//     let classID;
+//     let reportID;
+//     let activityArray;
+
+//     requestDataBase("rxb_0010", `login_student|${userName}|monastir33`)
+//         .then((result) => {
+//             studentID = data_get_tag(result, "ID");
+//             classID = data_get_tag(result, "class_id");
+//             reportLoginStudent(`${schoolID}_${classID}`, `${schoolID}_${studentID}`)
+//             return getReportId(schoolID, studentID)
+//         })
+//         .then((result) => {
+//             reportID = result.reportId;
+//             return getAllActivity(`${schoolID}_${classID}`, reportID)
+//         })
+//         .then(async (result) => {
+//             const duration = 180;
+//             activityArray = Object.keys(result);
+
+//             for (const activityID of activityArray) {
+//                 const parts = activityID.split('_');
+//                 const activityIDString = parts.slice(1).join('_');
+//                 const grade = getRandomInt(88, 100);
+//                 await new Promise((resolve) => {
+//                     setTimeout(resolve, 1000);
+//                 });
+
+//                 addTimeStamp(`${schoolID}_${classID}`, `${schoolID}_${studentID}`, activityID, duration);
+//                 await Promise.all([
+//                     requestDataBase("rxb_0020", `upd_exe_was_saved|${classID}|${activityIDString}|${studentID}`),
+//                     requestDataBase("rxb_0020", `upd_stud_work_qma|${classID}|${activityIDString}|${studentID}|${grade}%`),
+//                     requestDataBase("rxb_0020", `upd_grade_data|${classID}|${activityIDString}|${studentID}|${grade}%|0|`)
+//                 ]);
+
+//                 await setActivityResults(`${schoolID}_${classID}`, `${schoolID}_${studentID}`, activityID, grade);
+//                 console.log("done", activityIDString);
+//             }
+//         })
+//         .catch((error) => {
+//             console.log(error);
+//         });
+// }
